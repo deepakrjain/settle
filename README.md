@@ -3,19 +3,34 @@
 A group expense-splitting and debt-settlement platform built with Java 17 and Spring Boot.
 
 ## Overview
-**Settle** simplifies tracking shared expenses among groups. It supports multiple flexible expense-splitting algorithms, automated debt calculation, and secure group management.
+**Settle** simplifies tracking and balancing shared expenses within groups. Whether splitting dinner bills, trip expenses, or monthly apartment utilities, Settle provides flexible split strategies, robust security, and accurate financial calculations.
 
 ## Key Features
-- **User Authentication:** Registration and stateless JWT-based authentication.
-- **Group Management:** Group creation, member invitations, and membership authorization.
-- **Flexible Expense Splitting:**
-  - **Equal:** Split expenses evenly among participants with exact penny/paisa remainder handling.
-  - **Percentage:** Split by custom percentages summing to 100%.
-  - **Exact:** Split by exact predefined monetary amounts.
-  - **Shares:** Split proportionally based on custom share counts.
-  - **Itemized:** Split itemized receipts with proportional tax and tip distribution.
 
-## Architecture & Tech Stack
+### 🔐 Authentication & User Security
+- **BCrypt Password Hashing:** Raw passwords are never stored; passwords are cryptographically hashed using BCrypt.
+- **Stateless JWT Auth:** Secure JSON Web Token authentication using HMAC-SHA signing.
+- **User Profiles:** Registration, login, and authenticated user profile retrieval (`/api/users/me`).
+
+### 👥 Group Management & Security
+- **Atomic Group Creation:** Group creation automatically attaches the creator as the first member in a single `@Transactional` operation.
+- **Membership Authorization:** Reusable security guard (`GroupSecurityGuard`) preventing unauthorized users from accessing or modifying group resources (returns HTTP 403 Forbidden).
+- **Member Invitations:** Group members can invite new users to existing groups.
+
+### 💰 Flexible Expense Engine (Strategy Pattern)
+Supports 5 distinct calculation strategies with 100% financial precision (`BigDecimal`):
+- **Equal:** Splits expenses evenly among participants. Handles remainder pennies/paisa deterministically to ensure zero monetary drift.
+- **Percentage:** Splits by custom user percentages, strictly validating a 100% total sum.
+- **Exact:** Assigns exact custom amounts per user, validating that individual shares match the total expense amount.
+- **Shares:** Distributes costs proportionally based on custom share counts (e.g., 2 shares vs 1 share).
+- **Itemized Receipts:** Item-by-item breakdown allowing custom participant lists per item, plus proportional distribution of tax and tip based on each participant's subtotal.
+
+### 🛠️ Architecture & Validation
+- **Custom Payload Validation:** Custom Bean Validation (`@ValidSplitData`) ensuring request payloads strictly match the chosen split strategy before hitting service logic.
+- **Global Exception Handler:** Centralized `@ControllerAdvice` translating validation errors and security violations into clean, consistent JSON error responses.
+- **Database Migrations:** Managed database schema versioning with Flyway (`V1` to `V4`).
+
+## Tech Stack
 - **Language:** Java 17
 - **Framework:** Spring Boot 3.3.x (Spring Web, Spring Security, Spring Data JPA)
 - **Database:** PostgreSQL
@@ -24,12 +39,26 @@ A group expense-splitting and debt-settlement platform built with Java 17 and Sp
 - **Containerization:** Docker Compose (local dev)
 
 ## Project Structure
-Organized **by feature** for high cohesion and modular design:
-- `com.settle.user` — User management and profile endpoints
-- `com.settle.group` — Group lifecycle and membership authorization
-- `com.settle.expense` — Expense creation, split strategies, and history
-- `com.settle.ledger` — Debt calculation and settlement tracking
-- `com.settle.common` — Security, JWT filters, and global exception handling
+Organized **by feature** for high cohesion:
+- `com.settle.user` — User management, registration, and user DTOs
+- `com.settle.group` — Group lifecycle, membership queries, and security guards
+- `com.settle.expense` — Expense entities, split strategy implementations, and endpoints
+- `com.settle.ledger` — Debt tracking and settlement logic *(Upcoming)*
+- `com.settle.common` — Security config, JWT service/filter, and global exception advice
+
+## API Overview
+
+| Method | Endpoint | Auth | Description |
+| --- | --- | --- | --- |
+| `POST` | `/api/users/register` | Public | Register a new user account |
+| `POST` | `/api/auth/login` | Public | Authenticate user & receive JWT |
+| `GET` | `/api/users/me` | JWT | Get current authenticated user profile |
+| `POST` | `/api/groups` | JWT | Create a new group |
+| `GET` | `/api/groups` | JWT | List groups for the authenticated user |
+| `GET` | `/api/groups/{id}` | JWT | Get group details and member roster |
+| `POST` | `/api/groups/{id}/members` | JWT | Add a user to a group |
+| `POST` | `/api/groups/{groupId}/expenses` | JWT | Log an expense (EQUAL, PERCENTAGE, EXACT, SHARES, ITEMIZED) |
+| `GET` | `/api/groups/{groupId}/expenses` | JWT | List expenses for a group (paginated) |
 
 ## Getting Started
 
@@ -47,10 +76,10 @@ Organized **by feature** for high cohesion and modular design:
    ```bash
    mvn spring-boot:run
    ```
-   *Flyway will automatically run database migrations on application start.*
+   *Flyway automatically runs database migrations on startup.*
 
 ## Key Design Decisions
-- **Stateless JWT Authentication:** Request-scoped security using custom filter chain integration without HTTP sessions.
-- **Strategy Pattern for Splitting:** Encapsulated split algorithms (`SplitStrategy`) for clean extensibility adherence to the Open-Closed Principle.
+- **Stateless JWT Authentication:** Request-scoped security via custom filter chain integration without HTTP sessions.
+- **Strategy Pattern for Splitting:** Encapsulated split algorithms (`SplitStrategy`) adhering to the Open-Closed Principle.
 - **Financial Precision:** Strict use of Java `BigDecimal` and deterministic remainder distribution to prevent floating-point rounding errors.
 - **Schema Control:** Version-controlled database migrations via Flyway instead of automatic ORM schema generation.
