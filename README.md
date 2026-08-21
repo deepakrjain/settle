@@ -93,3 +93,15 @@ current thread). Because we set `SessionCreationPolicy.STATELESS`, no
 HTTP session is ever created — every single request must carry its own
 Bearer token. This is what makes JWT auth truly stateless.
 
+### Group Membership Guard & Transaction Boundaries (Phase 3)
+
+1. **Transactional Boundaries (`@Transactional`)**:
+   - Creating a group involves two database inserts: saving the `Group` record and saving the initial `GroupMember` record (the creator).
+   - Annotating `createGroup` with `@Transactional` ensures atomicity. If saving the membership fails (e.g. database constraint violation), the database transaction is rolled back, preventing orphaned groups with no members.
+
+2. **Reusable Authorization Guard (`GroupSecurityGuard`)**:
+   - Rather than scattering membership checks across controllers or services, `GroupSecurityGuard.checkMembership(groupId, userId)` encapsulates authorization logic.
+   - Throws `AccessDeniedException` if a user attempts to access or mutate a group they do not belong to, which `GlobalExceptionHandler` cleanly maps to `403 Forbidden`.
+   - This component will be reused across Expense and Ledger modules to secure group-scoped resources.
+
+
