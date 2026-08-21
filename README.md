@@ -59,6 +59,7 @@ Organized **by feature** for high cohesion:
 | `POST` | `/api/groups/{id}/members` | JWT | Add a user to a group |
 | `POST` | `/api/groups/{groupId}/expenses` | JWT | Log an expense (EQUAL, PERCENTAGE, EXACT, SHARES, ITEMIZED) |
 | `GET` | `/api/groups/{groupId}/expenses` | JWT | List expenses for a group (paginated) |
+| `GET` | `/api/groups/{groupId}/balances` | JWT | Get net balances for all group members |
 
 ## Getting Started
 
