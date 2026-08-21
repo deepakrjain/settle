@@ -104,4 +104,19 @@ Bearer token. This is what makes JWT auth truly stateless.
    - Throws `AccessDeniedException` if a user attempts to access or mutate a group they do not belong to, which `GlobalExceptionHandler` cleanly maps to `403 Forbidden`.
    - This component will be reused across Expense and Ledger modules to secure group-scoped resources.
 
+### Equal Split Remainder Allocation (Phase 4)
+
+1. **The Remainder Problem**:
+   - When splitting ₹100.00 equally among 3 participants, exact division yields ₹33.3333...
+   - Naive rounding (e.g. `33.33 * 3 = 99.99`) creates floating-point / rounding drift where 1 paisa is lost into thin air.
+   - `float` and `double` must **never** be used for currency due to IEEE 754 binary floating-point representation inaccuracies. We strictly use Java `BigDecimal` with 2 decimal place scale.
+
+2. **Deterministic Allocation Rule**:
+   - Total amount is divided using `RoundingMode.DOWN` to 2 decimal places to get the base share per participant (`baseShare = ₹33.33`).
+   - The total allocated base amount (`baseShare * count = ₹99.99`) is subtracted from the original total amount (`₹100.00`) to find the leftover remainder in smallest currency units (`1 paisa`).
+   - Participant UUIDs are sorted in ascending natural order (`Collections.sort(sortedParticipants)`).
+   - Extra paisa/cents (+₹0.01) are allocated one by one to the first $N$ participants in the sorted list until the remainder is fully distributed.
+   - Example (₹100.00 / 3 participants): User A gets ₹33.34, User B gets ₹33.33, User C gets ₹33.33. Sum: ₹33.34 + ₹33.33 + ₹33.33 = **₹100.00 exact**.
+
+
 
