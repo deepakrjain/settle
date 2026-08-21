@@ -38,6 +38,10 @@ public class Expense {
     @Column(length = 50)
     private String category;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "split_type", nullable = false)
+    private SplitType splitType = SplitType.EQUAL;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

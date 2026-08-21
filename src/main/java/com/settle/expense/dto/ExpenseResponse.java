@@ -1,6 +1,7 @@
 package com.settle.expense.dto;
 
 import com.settle.expense.Expense;
+import com.settle.expense.SplitType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -22,6 +23,7 @@ public class ExpenseResponse {
     private String currency;
     private String description;
     private String category;
+    private SplitType splitType;
     private LocalDateTime createdAt;
     private List<ExpenseSplitResponse> splits;
 
@@ -38,6 +40,7 @@ public class ExpenseResponse {
             expense.getCurrency(),
             expense.getDescription(),
             expense.getCategory(),
+            expense.getSplitType(),
             expense.getCreatedAt(),
             splitResponses
         );

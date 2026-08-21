@@ -118,5 +118,18 @@ Bearer token. This is what makes JWT auth truly stateless.
    - Extra paisa/cents (+₹0.01) are allocated one by one to the first $N$ participants in the sorted list until the remainder is fully distributed.
    - Example (₹100.00 / 3 participants): User A gets ₹33.34, User B gets ₹33.33, User C gets ₹33.33. Sum: ₹33.34 + ₹33.33 + ₹33.33 = **₹100.00 exact**.
 
+### Strategy Pattern & Flexible Split Types (Phase 5)
 
+1. **Strategy Pattern over Monolithic Switch Statements**:
+   - Rather than maintaining a giant method with nested `switch` branches handling `EQUAL`, `PERCENTAGE`, `EXACT`, `SHARES`, and `ITEMIZED` splits, we defined a clean `SplitStrategy` interface.
+   - Each strategy (`EqualSplitStrategy`, `PercentageSplitStrategy`, `ExactSplitStrategy`, `SharesSplitStrategy`, `ItemizedSplitStrategy`) is a dedicated Spring `@Component`.
+   - `SplitStrategyFactory` automatically injects all strategy beans into a Map keyed by `SplitType`.
+   - **Benefit (Open-Closed Principle):** Adding a new split type in the future requires creating a new strategy class without modifying any existing business logic or service code.
 
+2. **Itemized Split Calculation & Tax/Tip Proportionality**:
+   - Itemized splits allow specifying individual items with their own custom participant lists.
+   - **Step A:** Each item's cost is divided equally among its participants (reusing deterministic equal split calculation).
+   - **Step B:** Each user's item subtotal is accumulated across all receipt items.
+   - **Step C:** If tax & tip are included, the tax/tip amount is distributed **proportionally** according to each user's item subtotal ratio: `userTaxTipShare = taxAndTip * (userItemSubtotal / totalItemsSubtotal)`.
+   - **Step D:** Any rounding remainder from proportional tax/tip distribution is allocated paisa by paisa over sorted participant UUIDs.
+   - **Result:** Each participant pays for their specific items plus an exact, mathematically fair share of overall tax and tip.
