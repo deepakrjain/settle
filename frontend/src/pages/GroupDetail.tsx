@@ -37,7 +37,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
     setExpensesLoading(true);
     try {
       const pageRes = await api.getGroupExpenses(groupId);
-      setExpenses(pageRes.content);
+      setExpenses(pageRes.content || []);
     } catch (err: any) {
       console.error('Failed to load expenses', err);
     } finally {
@@ -83,6 +83,8 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
     );
   }
 
+  const members = group.members || [];
+
   return (
     <div style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
       <button onClick={onBack} className="btn-secondary" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -102,10 +104,10 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
             <h1 style={{ fontSize: '2.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.5rem' }}>{group.name}</h1>
             <div style={{ display: 'flex', gap: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Calendar size={16} /> Created {new Date(group.createdAt).toLocaleDateString()}
+                <Calendar size={16} /> Created {group.createdAt ? new Date(group.createdAt).toLocaleDateString() : 'N/A'}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Users size={16} /> {group.members.length} Members
+                <Users size={16} /> {members.length} Members
               </span>
             </div>
           </div>
@@ -146,13 +148,13 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {group.members.map((member) => (
+              {members.map((member) => (
                 <div 
                   key={member.id}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
+                    justifyContent: 'space-between',
                     padding: '0.75rem 0.85rem',
                     background: 'rgba(15, 23, 42, 0.5)',
                     borderRadius: '10px',
@@ -161,11 +163,11 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{ background: 'rgba(99, 102, 241, 0.2)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', fontWeight: 600, fontSize: '0.8rem' }}>
-                      {member.userId.substring(0, 2).toUpperCase()}
+                      {member.userId ? member.userId.substring(0, 2).toUpperCase() : 'U'}
                     </div>
                     <div>
                       <div style={{ color: '#f8fafc', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'monospace' }}>
-                        {member.userId.substring(0, 8)}...
+                        {member.userId ? `${member.userId.substring(0, 8)}...` : 'User'}
                       </div>
                     </div>
                   </div>
@@ -211,7 +213,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
       {showCreateExpense && (
         <CreateExpenseModal 
           groupId={groupId}
-          members={group.members}
+          members={members}
           onClose={() => setShowCreateExpense(false)}
           onSuccess={() => {
             fetchExpenses();

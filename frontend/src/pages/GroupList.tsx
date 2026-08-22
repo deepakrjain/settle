@@ -102,7 +102,7 @@ export const GroupList: React.FC<GroupListProps> = ({ onSelectGroup }) => {
                 transition: 'all 0.25 ease',
                 display: 'flex',
                 flexDirection: 'column',
-                justify: 'space-between'
+                justifyContent: 'space-between'
               }}
             >
               <div>

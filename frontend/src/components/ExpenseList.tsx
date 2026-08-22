@@ -112,7 +112,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading }) =
                         padding: '0.6rem 0.8rem',
                         borderRadius: '8px',
                         display: 'flex',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         alignItems: 'center',
                         fontSize: '0.85rem'
                       }}

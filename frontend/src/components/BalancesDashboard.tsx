@@ -238,7 +238,7 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
                         borderRadius: '10px',
                         display: 'flex',
                         alignItems: 'center',
-                        justify: 'space-between',
+                        justifyContent: 'space-between',
                         border: '1px solid rgba(255,255,255,0.05)'
                       }}
                     >
@@ -292,7 +292,7 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
                           borderRadius: '10px',
                           display: 'flex',
                           alignItems: 'center',
-                          justify: 'space-between',
+                          justifyContent: 'space-between',
                           border: '1px solid rgba(255,255,255,0.05)'
                         }}
                       >
