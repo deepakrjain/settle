@@ -30,15 +30,11 @@ com.settle
 ```
 
 ### The Transactional Consistency Tradeoff
-In an expense platform, when a user logs an expense:
-1. An `Expense` entity and its `ExpenseSplit` records must be saved.
-2. Corresponding `LedgerEntry` rows (recording participant debts to the payer) must be written.
+When a user logs an expense, an `Expense` entity, its `ExpenseSplit` records, and the corresponding `LedgerEntry` debt rows must all be saved together.
 
-If these two operations were split across two separate microservices (e.g. `ExpenseService` REST API calling `LedgerService` REST API):
-- A network partition or crash between the calls would leave the system in an inconsistent state: an expense exists in history, but nobody owes money in the ledger.
-- Solving this in a microservices architecture requires complex distributed sagas, compensating transactions, outbox patterns, and eventual consistency handling.
+In a microservices setup with separate `ExpenseService` and `LedgerService` databases, network failures or crashes mid-request leave data inconsistent unless complex distributed sagas or outbox patterns are implemented.
 
-By choosing a **Modular Monolith architecture**, Spring Boot executes expense creation and ledger entry generation inside a **single ACID database transaction** (`@Transactional`). If any step fails, PostgreSQL issues a complete rollback — guaranteeing 100% data consistency with zero partial writes, zero network latency, and simple operational maintenance.
+By adopting a **Modular Monolith architecture**, Spring Boot executes expense creation and ledger entry generation inside a **single ACID database transaction** (`@Transactional`). If any operation fails, PostgreSQL performs an immediate rollback — guaranteeing 100% data consistency with zero partial writes and zero inter-service network latency.
 
 ---
 
@@ -105,43 +101,16 @@ mvn test
 
 ---
 
-## Key Design Decisions & Interview Notes
+## Key Design Decisions
 
-### 1. Strategy Pattern for Flexible Expense Splitting
-To support multiple split mechanisms (`EQUAL`, `PERCENTAGE`, `EXACT`, `SHARES`, `ITEMIZED`) without writing monolithic `switch` statements, Settle uses the **Strategy Pattern**:
-- `SplitStrategy` defines the common contract: `calculateSplits(BigDecimal totalAmount, CreateExpenseRequest request)`.
-- Individual strategy implementations (`EqualSplitStrategy`, `PercentageSplitStrategy`, etc.) encapsulate specific calculation and validation logic.
-- A `SplitStrategyFactory` backed by Spring dependency injection (`Map<String, SplitStrategy>`) dynamically resolves the appropriate bean based on `SplitType`.
-- **Open-Closed Principle (OCP):** Adding a new split type (e.g., `TIME_BASED`) simply requires adding a new `SplitStrategy` bean without mutating existing service code.
-
-### 2. Append-Only Immutable Ledger
-Financial systems require absolute auditability. In Settle:
-- `ledger_entries` table is **append-only**. Rows are inserted when expenses or settlements occur, but never updated or deleted.
-- `LedgerEntryRepository` deliberately extends Spring's bare `Repository` interface (rather than `JpaRepository` or `CrudRepository`), exposing **only** `save()` and read methods.
-- Compiler-enforced immutability: Developers literally cannot call `delete()` or update methods because those signatures do not exist on the repository interface.
-
-### 3. Settlement Minimization Algorithms (Greedy vs. Optimal)
-Minimizing transaction count across $N$ group members is equivalent to the **Subset Sum Problem** (NP-Hard in decision form).
-- **Greedy Algorithm ($O(N \log N)$):** Uses priority queues to repeatedly pair the max debtor with the max creditor. Fast, sub-millisecond execution, and scales seamlessly to thousands of users.
-- **Optimal Algorithm ($O(2^N)$):** Exact subset-sum partitioning using recursive backtracking to find zero-sum sub-groups. Because of its exponential time complexity, it is restricted to groups with under 10 active balances.
-- **Production Tradeoff:** Real-world platforms (like Splitwise) default to Greedy at scale because $O(N \log N)$ avoids CPU exhaustion while delivering transaction counts within 1 payment of the theoretical minimum.
-
-### 4. Idempotency & Database Unique Constraints
-Application-level `existsByIdempotencyKey()` checks are vulnerable to race conditions when concurrent duplicate requests arrive before the first transaction commits.
-- Settle enforces a database-level `UNIQUE` constraint on `idempotency_key`.
-- Under race conditions, PostgreSQL index locks force the second insert to fail with `DataIntegrityViolationException`.
-- `SettlementService` catches `DataIntegrityViolationException`, retrieves the already-committed `Settlement` record, and returns it gracefully without surfacing a 500 error or creating duplicate payments.
-
-### 5. Payment Gateway Retries & Exponential Backoff
-External payment processing can suffer from transient network timeouts:
-- Annotated with `@Retryable(retryFor = PaymentGatewayException.class, maxAttempts = 3, backoff = @Backoff(delay = 500, multiplier = 2))`.
-- **Backoff Delays:** Attempt 1 ($t=0$ ms), Attempt 2 ($t=500$ ms delay), Attempt 3 ($t=1000$ ms delay). Total time: $1500$ ms.
-- **Circuit-Breaker Recovery (`@Recover`):** If all 3 attempts fail, `@Recover` sets settlement status to `FAILED` and skips creating debt-reversing ledger entries, preventing ambiguous state.
-
-### 6. Transaction-Aware Real-Time WebSockets
-Broadcasting WebSocket updates *inside* an active transaction risks publishing "phantom" balance notifications if the transaction later rolls back.
-- Settle uses Spring's `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`.
-- STOMP messages to `/topic/groups/{groupId}/balances` are deferred until PostgreSQL confirms the transaction commit, guaranteeing eventual consistency across connected clients without polling.
+- **Strategy Pattern for Splitting:** Encapsulates split algorithms (`EQUAL`, `PERCENTAGE`, `EXACT`, `SHARES`, `ITEMIZED`) in dedicated `SplitStrategy` beans. New split types can be added without modifying core service code (Adheres to Open-Closed Principle).
+- **Append-Only Immutable Ledger:** `ledger_entries` records are strictly immutable. `LedgerEntryRepository` extends Spring's bare `Repository` interface (excluding update/delete signatures), enforcing immutability at compile time.
+- **Debt Minimization Algorithms (Greedy vs. Optimal):**
+  - **Greedy ($O(N \log N)$):** Uses priority queues to settle largest creditors/debtors first. Sub-millisecond execution, scales to thousands of members.
+  - **Optimal ($O(2^N)$):** Backtracking subset-sum algorithm that guarantees true minimal transaction count for small groups ($<10$ members).
+- **Idempotency & Race Condition Defense:** Concurrent duplicate payments are caught at the database level via a `UNIQUE` constraint on `idempotency_key`, recovering from `DataIntegrityViolationException` without generating duplicate ledger entries.
+- **Payment Retries & Backoff:** Uses `@Retryable` with exponential backoff ($500$ ms delay, $2\times$ multiplier) for gateway timeouts, with `@Recover` setting payment status to `FAILED` if exhausted.
+- **Transaction-Aware WebSockets:** Balance updates are published via `@TransactionalEventListener(phase = AFTER_COMMIT)` to ensure STOMP frames are sent only after PostgreSQL commits, preventing phantom updates on rollback.
 
 ---
 
