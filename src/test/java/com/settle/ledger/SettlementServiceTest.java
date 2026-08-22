@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
@@ -34,6 +35,9 @@ class SettlementServiceTest {
 
     @Mock
     private MockPaymentGatewayClient mockPaymentGatewayClient;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private SettlementService settlementService;
@@ -91,6 +95,7 @@ class SettlementServiceTest {
         assertNotNull(response);
         assertEquals("COMPLETED", response.getStatus());
         verify(ledgerEntryRepository, times(1)).save(any());
+        verify(eventPublisher, times(1)).publishEvent(any(GroupBalanceUpdatedEvent.class));
     }
 
     @Test
