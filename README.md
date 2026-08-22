@@ -102,6 +102,10 @@ Organized **by feature** for high cohesion:
 - **Transaction-Aware Real-Time WebSocket Broadcasting (Phase 10):**
   - **Why `AFTER_COMMIT` is Critical:** Publishing WebSocket events inside an active, uncommitted transaction risks broadcasting "phantom" balance updates if the transaction rolls back. Additionally, clients receiving the push notification who immediately query the REST API might hit the database before the writing transaction commits, leading to dirty/stale reads.
   - **Spring Transaction Synchronization:** Using `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`, Spring defers broadcasting STOMP messages to `/topic/groups/{groupId}/balances` until PostgreSQL has confirmed the transaction commit. This guarantees eventual consistency across all connected clients without polling.
+- **Comprehensive Integration Testing with Testcontainers (Phase 11):**
+  - **Real Database Integration:** Utilizes Testcontainers to launch a real Dockerized PostgreSQL instance for integration tests, automatically applying all Flyway migrations (`V1` to `V6`).
+  - **Transaction Rollback Proof:** Validates that `@Transactional` boundaries guarantee zero partial writes if an operation fails mid-execution.
+  - **Real Concurrency & Constraint Testing:** Tests idempotency against PostgreSQL's actual database unique constraint engine rather than mocked behavior.
 
 
 
