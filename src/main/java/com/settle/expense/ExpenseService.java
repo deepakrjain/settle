@@ -5,9 +5,11 @@ import com.settle.expense.dto.ExpenseResponse;
 import com.settle.expense.strategy.SplitStrategy;
 import com.settle.expense.strategy.SplitStrategyFactory;
 import com.settle.group.GroupSecurityGuard;
+import com.settle.ledger.GroupBalanceUpdatedEvent;
 import com.settle.ledger.LedgerEntry;
 import com.settle.ledger.LedgerEntryRepository;
 import com.settle.ledger.SourceType;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -26,29 +28,20 @@ public class ExpenseService {
     private final GroupSecurityGuard groupSecurityGuard;
     private final SplitStrategyFactory splitStrategyFactory;
     private final LedgerEntryRepository ledgerEntryRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ExpenseService(ExpenseRepository expenseRepository,
                           GroupSecurityGuard groupSecurityGuard,
                           SplitStrategyFactory splitStrategyFactory,
-                          LedgerEntryRepository ledgerEntryRepository) {
+                          LedgerEntryRepository ledgerEntryRepository,
+                          ApplicationEventPublisher eventPublisher) {
         this.expenseRepository = expenseRepository;
         this.groupSecurityGuard = groupSecurityGuard;
         this.splitStrategyFactory = splitStrategyFactory;
         this.ledgerEntryRepository = ledgerEntryRepository;
+        this.eventPublisher = eventPublisher;
     }
 
-    /**
-     * Creates an expense AND its corresponding ledger entries in a SINGLE transaction.
-     *
-     * Why one transaction? If these were two separate transactions and the process crashed
-     * after saving the expense but before writing ledger entries, the system would show
-     * the expense in the group's history but the balances would be wrong — participants
-     * would see an expense they supposedly split but their debts would never have been
-     * recorded. Conversely, if ledger entries were written but the expense save failed,
-     * users would owe money for a phantom expense that doesn't appear anywhere. Either
-     * scenario leaves the system in an inconsistent state that is very hard to detect
-     * and repair. A single @Transactional boundary guarantees all-or-nothing.
-     */
     @Transactional
     public ExpenseResponse createExpense(UUID groupId,
                                          CreateExpenseRequest request,
@@ -66,7 +59,7 @@ public class ExpenseService {
             groupSecurityGuard.checkMembership(groupId, participantId);
         }
 
-        // 4. Calculate total amount (if not explicitly provided, derived from split map)
+        // 4. Calculate total amount
         BigDecimal totalAmount = request.getAmount();
         if (totalAmount == null) {
             totalAmount = splitMap.values().stream().reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -91,7 +84,7 @@ public class ExpenseService {
 
         Expense savedExpense = expenseRepository.save(expense);
 
-        // 6. Generate ledger entries: each participant who isn't the payer owes the payer their share
+        // 6. Generate ledger entries
         UUID payerId = request.getPaidByUserId();
         List<LedgerEntry> ledgerEntries = new ArrayList<>();
 
@@ -99,15 +92,14 @@ public class ExpenseService {
             UUID participantId = entry.getKey();
             BigDecimal shareAmount = entry.getValue();
 
-            // Skip the payer — they don't owe themselves
             if (participantId.equals(payerId)) {
                 continue;
             }
 
             LedgerEntry ledgerEntry = new LedgerEntry();
             ledgerEntry.setGroupId(groupId);
-            ledgerEntry.setFromUserId(participantId);   // participant owes...
-            ledgerEntry.setToUserId(payerId);            // ...the payer
+            ledgerEntry.setFromUserId(participantId);
+            ledgerEntry.setToUserId(payerId);
             ledgerEntry.setAmount(shareAmount);
             ledgerEntry.setCurrency(request.getCurrency());
             ledgerEntry.setSourceType(SourceType.EXPENSE);
@@ -118,15 +110,13 @@ public class ExpenseService {
 
         if (!ledgerEntries.isEmpty()) {
             ledgerEntryRepository.saveAll(ledgerEntries);
+            // Publish event to trigger WebSocket broadcast AFTER transaction commits
+            eventPublisher.publishEvent(new GroupBalanceUpdatedEvent(groupId));
         }
 
         return ExpenseResponse.fromEntity(savedExpense);
     }
 
-    /**
-     * Retrieves paginated list of expenses for a group.
-     * Verifies requesting user is a group member.
-     */
     @Transactional(readOnly = true)
     public Page<ExpenseResponse> getGroupExpenses(UUID groupId, Pageable pageable, UUID requestingUserId) {
         groupSecurityGuard.checkMembership(groupId, requestingUserId);

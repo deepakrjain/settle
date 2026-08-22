@@ -99,6 +99,9 @@ Organized **by feature** for high cohesion:
     - **Attempt 2 ($t = 500$ ms):** 1st retry executed after a $500$ ms delay ($500 \times 2^0$).
     - **Attempt 3 ($t = 1500$ ms):** 2nd retry executed after a $1000$ ms delay ($500 \times 2^1$).
   - **Fallback Recovery (`@Recover`):** If all 3 attempts fail due to temporary network timeouts (`PaymentGatewayException`), Spring Retry invokes `@Recover`. The settlement is saved with status `FAILED` and no debt-reversing `LedgerEntry` is written, preventing ambiguous or partially-committed states.
+- **Transaction-Aware Real-Time WebSocket Broadcasting (Phase 10):**
+  - **Why `AFTER_COMMIT` is Critical:** Publishing WebSocket events inside an active, uncommitted transaction risks broadcasting "phantom" balance updates if the transaction rolls back. Additionally, clients receiving the push notification who immediately query the REST API might hit the database before the writing transaction commits, leading to dirty/stale reads.
+  - **Spring Transaction Synchronization:** Using `@TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)`, Spring defers broadcasting STOMP messages to `/topic/groups/{groupId}/balances` until PostgreSQL has confirmed the transaction commit. This guarantees eventual consistency across all connected clients without polling.
 
 
 

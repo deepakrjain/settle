@@ -29,7 +29,19 @@ public class LedgerService {
     @Transactional(readOnly = true)
     public List<UserBalance> getNetBalances(UUID groupId, UUID requestingUserId) {
         groupSecurityGuard.checkMembership(groupId, requestingUserId);
+        return calculateNetBalances(groupId);
+    }
 
+    /**
+     * System-level net balance calculation used by WebSocket event listeners after commit.
+     * Bypasses user-level HTTP security checks.
+     */
+    @Transactional(readOnly = true)
+    public List<UserBalance> getNetBalancesSystem(UUID groupId) {
+        return calculateNetBalances(groupId);
+    }
+
+    private List<UserBalance> calculateNetBalances(UUID groupId) {
         List<LedgerEntry> entries = ledgerEntryRepository.findByGroupId(groupId);
         Map<UUID, BigDecimal> balanceMap = new HashMap<>();
 
@@ -46,14 +58,12 @@ public class LedgerService {
 
     /**
      * Calculates the settlement plan for a group.
-     * Always computes the Greedy settlement plan.
-     * Computes the Optimal plan if non-zero member count is under 10.
      */
     @Transactional(readOnly = true)
     public SettlementPlanResponse getSettlementPlan(UUID groupId, UUID requestingUserId) {
         groupSecurityGuard.checkMembership(groupId, requestingUserId);
 
-        List<UserBalance> userBalances = getNetBalances(groupId, requestingUserId);
+        List<UserBalance> userBalances = calculateNetBalances(groupId);
         Map<UUID, BigDecimal> balanceMap = userBalances.stream()
                 .collect(Collectors.toMap(UserBalance::getUserId, UserBalance::getNetBalance));
 

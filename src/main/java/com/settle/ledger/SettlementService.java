@@ -3,6 +3,7 @@ package com.settle.ledger;
 import com.settle.group.GroupSecurityGuard;
 import com.settle.ledger.dto.RecordSettlementRequest;
 import com.settle.ledger.dto.SettlementResponse;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,32 +18,29 @@ public class SettlementService {
     private final LedgerEntryRepository ledgerEntryRepository;
     private final GroupSecurityGuard groupSecurityGuard;
     private final MockPaymentGatewayClient mockPaymentGatewayClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SettlementService(SettlementRepository settlementRepository,
                              LedgerEntryRepository ledgerEntryRepository,
                              GroupSecurityGuard groupSecurityGuard,
-                             MockPaymentGatewayClient mockPaymentGatewayClient) {
+                             MockPaymentGatewayClient mockPaymentGatewayClient,
+                             ApplicationEventPublisher eventPublisher) {
         this.settlementRepository = settlementRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.groupSecurityGuard = groupSecurityGuard;
         this.mockPaymentGatewayClient = mockPaymentGatewayClient;
+        this.eventPublisher = eventPublisher;
     }
 
-    /**
-     * Records a debt settlement between two group members idempotently.
-     * Integrates MockPaymentGatewayClient with retry and fallback handling.
-     */
     @Transactional
     public SettlementResponse recordSettlement(UUID groupId,
                                                RecordSettlementRequest request,
                                                UUID requestingUserId) {
-        // 1. Application-level idempotency check
         Optional<Settlement> existing = settlementRepository.findByIdempotencyKey(request.getIdempotencyKey());
         if (existing.isPresent()) {
             return SettlementResponse.fromEntity(existing.get());
         }
 
-        // 2. Verify group membership for requester, payer, and recipient
         groupSecurityGuard.checkMembership(groupId, requestingUserId);
         groupSecurityGuard.checkMembership(groupId, request.getFromUserId());
         groupSecurityGuard.checkMembership(groupId, request.getToUserId());
@@ -51,7 +49,6 @@ public class SettlementService {
             throw new IllegalArgumentException("Cannot settle debt with oneself");
         }
 
-        // 3. Process payment through mock gateway (handles @Retryable internally)
         PaymentResult paymentResult = mockPaymentGatewayClient.processPayment(
                 request.getFromUserId(),
                 request.getToUserId(),
@@ -59,7 +56,6 @@ public class SettlementService {
         );
 
         try {
-            // 4. Save Settlement record with final status (COMPLETED or FAILED)
             Settlement settlement = new Settlement();
             settlement.setGroupId(groupId);
             settlement.setFromUserId(request.getFromUserId());
@@ -70,7 +66,6 @@ public class SettlementService {
 
             Settlement savedSettlement = settlementRepository.saveAndFlush(settlement);
 
-            // 5. Generate reversing LedgerEntry ONLY if payment succeeded
             if (paymentResult.isSuccessful()) {
                 LedgerEntry ledgerEntry = new LedgerEntry();
                 ledgerEntry.setGroupId(groupId);
@@ -82,11 +77,12 @@ public class SettlementService {
                 ledgerEntry.setSourceId(savedSettlement.getId());
 
                 ledgerEntryRepository.save(ledgerEntry);
+                // Publish event to trigger WebSocket broadcast AFTER transaction commits
+                eventPublisher.publishEvent(new GroupBalanceUpdatedEvent(groupId));
             }
 
             return SettlementResponse.fromEntity(savedSettlement);
         } catch (DataIntegrityViolationException ex) {
-            // Race condition caught by database unique constraint
             Settlement alreadySaved = settlementRepository.findByIdempotencyKey(request.getIdempotencyKey())
                     .orElseThrow(() -> ex);
             return SettlementResponse.fromEntity(alreadySaved);
