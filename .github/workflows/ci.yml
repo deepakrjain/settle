@@ -22,4 +22,4 @@ jobs:
         cache: maven
 
     - name: Run Maven Tests
-      run: mvn test --batch-mode
+      run: mvn test --batch-mode --no-transfer-progress
