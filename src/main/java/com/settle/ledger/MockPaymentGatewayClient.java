@@ -1,7 +1,7 @@
 package com.settle.ledger;
 
-import org.slf.Logger;
-import org.slf.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Recover;

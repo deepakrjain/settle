@@ -1,8 +1,8 @@
 package com.settle.ledger;
 
 import com.settle.ledger.dto.UserBalance;
-import org.slf.Logger;
-import org.slf.LoggerFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
