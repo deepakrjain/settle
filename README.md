@@ -106,6 +106,9 @@ Organized **by feature** for high cohesion:
   - **Real Database Integration:** Utilizes Testcontainers to launch a real Dockerized PostgreSQL instance for integration tests, automatically applying all Flyway migrations (`V1` to `V6`).
   - **Transaction Rollback Proof:** Validates that `@Transactional` boundaries guarantee zero partial writes if an operation fails mid-execution.
   - **Real Concurrency & Constraint Testing:** Tests idempotency against PostgreSQL's actual database unique constraint engine rather than mocked behavior.
+- **OpenAPI 3.0 & Interactive Swagger UI (Phase 12):**
+  - **Interactive Endpoint Testing:** Integrated `springdoc-openapi-starter-webmvc-ui` to generate interactive API documentation available at `/swagger-ui.html`.
+  - **JWT Bearer Security Scheme:** Configured `SecurityScheme` with `type = HTTP`, `scheme = bearer`, and `bearerFormat = JWT`. Developers can authenticate at `/api/auth/login`, paste the token into Swagger UI's "Authorize" modal, and test protected endpoints directly in the browser.
 
 
 

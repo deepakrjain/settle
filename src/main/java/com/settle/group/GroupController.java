@@ -3,6 +3,9 @@ package com.settle.group;
 import com.settle.group.dto.AddGroupMemberRequest;
 import com.settle.group.dto.CreateGroupRequest;
 import com.settle.group.dto.GroupResponse;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +17,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/groups")
+@Tag(name = "Group Management", description = "Endpoints for creating groups, managing rosters, and group authorization")
 public class GroupController {
 
     private final GroupService groupService;
@@ -26,6 +30,8 @@ public class GroupController {
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
 
+    @Operation(summary = "Create a new group", description = "Creates a group and automatically attaches creator as first member atomically")
+    @ApiResponse(responseCode = "201", description = "Group created successfully")
     @PostMapping
     public ResponseEntity<GroupResponse> createGroup(@Valid @RequestBody CreateGroupRequest request) {
         UUID userId = getCurrentUserId();
@@ -33,6 +39,9 @@ public class GroupController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @Operation(summary = "Add a member to group", description = "Adds a user to group roster (requires requesting user to be an existing member)")
+    @ApiResponse(responseCode = "200", description = "Member added successfully")
+    @ApiResponse(responseCode = "403", description = "Forbidden if requesting user is not a group member")
     @PostMapping("/{id}/members")
     public ResponseEntity<GroupResponse> addMember(@PathVariable UUID id,
                                                    @Valid @RequestBody AddGroupMemberRequest request) {
@@ -41,6 +50,9 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "Get group details", description = "Returns group details and member roster (requires membership)")
+    @ApiResponse(responseCode = "200", description = "Group details retrieved")
+    @ApiResponse(responseCode = "403", description = "Forbidden if requesting user is not a group member")
     @GetMapping("/{id}")
     public ResponseEntity<GroupResponse> getGroup(@PathVariable UUID id) {
         UUID requestingUserId = getCurrentUserId();
@@ -48,6 +60,8 @@ public class GroupController {
         return ResponseEntity.ok(response);
     }
 
+    @Operation(summary = "List user groups", description = "Returns all groups the authenticated user belongs to")
+    @ApiResponse(responseCode = "200", description = "User groups retrieved")
     @GetMapping
     public ResponseEntity<List<GroupResponse>> getMyGroups() {
         UUID requestingUserId = getCurrentUserId();
