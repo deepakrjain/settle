@@ -16,6 +16,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -80,6 +81,7 @@ class ExpenseServiceIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    @Transactional
     @DisplayName("End-to-End Expense Creation: Expense, ExpenseSplit, and LedgerEntry rows are saved atomically in Postgres")
     void testEndToEndExpenseCreation() {
         CreateExpenseRequest request = new CreateExpenseRequest();
