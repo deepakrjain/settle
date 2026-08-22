@@ -1,5 +1,6 @@
 package com.settle.ledger;
 
+import com.settle.ledger.dto.SettlementPlanResponse;
 import com.settle.ledger.dto.UserBalance;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,5 +28,12 @@ public class LedgerController {
         UUID requestingUserId = getCurrentUserId();
         List<UserBalance> balances = ledgerService.getNetBalances(groupId, requestingUserId);
         return ResponseEntity.ok(balances);
+    }
+
+    @GetMapping("/settlement-plan")
+    public ResponseEntity<SettlementPlanResponse> getSettlementPlan(@PathVariable UUID groupId) {
+        UUID requestingUserId = getCurrentUserId();
+        SettlementPlanResponse response = ledgerService.getSettlementPlan(groupId, requestingUserId);
+        return ResponseEntity.ok(response);
     }
 }
