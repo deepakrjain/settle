@@ -9,7 +9,17 @@
  * this is solved by pairing in-memory access tokens with HttpOnly, SameSite=Strict refresh cookies).
  */
 
-import { CreateExpensePayload, ExpenseResponse, Group, PageResponse, User, UserBalance } from './types';
+import {
+  CreateExpensePayload,
+  ExpenseResponse,
+  Group,
+  PageResponse,
+  RecordSettlementPayload,
+  SettlementPlanResponse,
+  SettlementResponse,
+  User,
+  UserBalance
+} from './types';
 
 let inMemoryToken: string | null = null;
 
@@ -93,5 +103,14 @@ export const api = {
     }),
 
   getGroupExpenses: (groupId: string, page = 0, size = 10) =>
-    request<PageResponse<ExpenseResponse>>(`/api/groups/${groupId}/expenses?page=${page}&size=${size}`)
+    request<PageResponse<ExpenseResponse>>(`/api/groups/${groupId}/expenses?page=${page}&size=${size}`),
+
+  getSettlementPlan: (groupId: string) =>
+    request<SettlementPlanResponse>(`/api/groups/${groupId}/settlement-plan`),
+
+  recordSettlement: (groupId: string, payload: RecordSettlementPayload) =>
+    request<SettlementResponse>(`/api/groups/${groupId}/settlements`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    })
 };

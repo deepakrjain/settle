@@ -74,3 +74,35 @@ export interface PageResponse<T> {
   number: number;
   size: number;
 }
+
+export interface SettlementTransaction {
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+}
+
+export interface SettlementPlanResponse {
+  greedyPlan: SettlementTransaction[];
+  greedyTransactionCount: number;
+  optimalPlan: SettlementTransaction[] | null;
+  optimalTransactionCount: number | null;
+  optimalCalculated: boolean;
+}
+
+export interface RecordSettlementPayload {
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  idempotencyKey: string;
+}
+
+export interface SettlementResponse {
+  id: string;
+  groupId: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: number;
+  idempotencyKey: string;
+  status: string;
+  createdAt: string;
+}

@@ -3,6 +3,7 @@ import { ExpenseResponse, Group } from '../types';
 import { api } from '../api/client';
 import { CreateExpenseModal } from '../components/CreateExpenseModal';
 import { ExpenseList } from '../components/ExpenseList';
+import { BalancesDashboard } from '../components/BalancesDashboard';
 import { ArrowLeft, Users, UserPlus, Shield, Calendar, PlusCircle, Receipt } from 'lucide-react';
 
 interface GroupDetailProps {
@@ -117,6 +118,11 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
             <PlusCircle size={20} /> Log Expense
           </button>
         </div>
+      </div>
+
+      {/* Live Net Balances & Debt Minimization Dashboard */}
+      <div style={{ marginBottom: '2rem' }}>
+        <BalancesDashboard groupId={groupId} onBalanceUpdated={fetchExpenses} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>

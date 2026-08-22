@@ -112,6 +112,10 @@ Organized **by feature** for high cohesion:
 - **React Frontend Architecture & In-Memory JWT Storage Security (Phase 13a):**
   - **In-Memory Token Storage Rationale:** Storing JWT tokens in `localStorage` or `sessionStorage` makes them vulnerable to XSS attacks (any script running in the DOM can read `localStorage.getItem('token')`). Storing tokens in-memory within React state/closure insulates them from global storage inspection.
   - **Vite + TypeScript + Modern UI System:** Built using React 18, TypeScript, and a glassmorphic design system with Vite dev server proxying `/api` requests to Spring Boot (`http://localhost:8080`).
+- **Live Balances Dashboard & Frontend Idempotency Handling (Phase 13c):**
+  - **Live WebSocket Synchronization:** Subscribes to STOMP topic `/topic/groups/{groupId}/balances` to push real-time net balance updates to connected clients without HTTP polling.
+  - **Greedy vs. Optimal Plan Visualization:** Renders both Greedy ($O(N \log N)$) and exact Optimal ($O(2^N)$ backtracking) transaction plans side-by-side to visually demonstrate transaction minimization.
+  - **Idempotent Settle Up UI:** Generates a client-side UUID idempotency key per payment. While the UI disables the button after a click for user experience, the true defense against duplicate payments is enforced by PostgreSQL's unique constraint on `idempotency_key`.
 
 
 
