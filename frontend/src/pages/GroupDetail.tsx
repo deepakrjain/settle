@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Group } from '../types';
+import { ExpenseResponse, Group } from '../types';
 import { api } from '../api/client';
-import { ArrowLeft, Users, UserPlus, Shield, Calendar } from 'lucide-react';
+import { CreateExpenseModal } from '../components/CreateExpenseModal';
+import { ExpenseList } from '../components/ExpenseList';
+import { ArrowLeft, Users, UserPlus, Shield, Calendar, PlusCircle, Receipt } from 'lucide-react';
 
 interface GroupDetailProps {
   groupId: string;
@@ -10,9 +12,13 @@ interface GroupDetailProps {
 
 export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => {
   const [group, setGroup] = useState<Group | null>(null);
+  const [expenses, setExpenses] = useState<ExpenseResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+
   const [newUserId, setNewUserId] = useState('');
   const [addingMember, setAddingMember] = useState(false);
+  const [showCreateExpense, setShowCreateExpense] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchGroup = async () => {
@@ -26,8 +32,21 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
     }
   };
 
+  const fetchExpenses = async () => {
+    setExpensesLoading(true);
+    try {
+      const pageRes = await api.getGroupExpenses(groupId);
+      setExpenses(pageRes.content);
+    } catch (err: any) {
+      console.error('Failed to load expenses', err);
+    } finally {
+      setExpensesLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchGroup();
+    fetchExpenses();
   }, [groupId]);
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -64,7 +83,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
   }
 
   return (
-    <div style={{ maxWidth: '900px', margin: '2rem auto', padding: '0 1rem' }}>
+    <div style={{ maxWidth: '1000px', margin: '2rem auto', padding: '0 1rem' }}>
       <button onClick={onBack} className="btn-secondary" style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
         <ArrowLeft size={16} /> Back to Groups
       </button>
@@ -76,8 +95,8 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
       )}
 
       {/* Header Banner */}
-      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div className="glass-panel" style={{ padding: '2rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '2.25rem', fontWeight: 700, color: '#f8fafc', marginBottom: '0.5rem' }}>{group.name}</h1>
             <div style={{ display: 'flex', gap: '1.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
@@ -89,83 +108,110 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
               </span>
             </div>
           </div>
+
+          <button 
+            onClick={() => setShowCreateExpense(true)}
+            className="btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.85rem 1.4rem', fontSize: '0.95rem' }}
+          >
+            <PlusCircle size={20} /> Log Expense
+          </button>
         </div>
       </div>
 
-      {/* Roster & Add Member */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
-        {/* Members Roster */}
-        <div className="glass-panel" style={{ padding: '1.5rem' }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Users size={20} color="#6366f1" /> Member Roster
-          </h3>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {group.members.map((member) => (
-              <div 
-                key={member.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justify: 'space-between',
-                  padding: '0.85rem 1rem',
-                  background: 'rgba(15, 23, 42, 0.5)',
-                  borderRadius: '10px',
-                  border: '1px solid rgba(255,255,255,0.05)'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ background: 'rgba(99, 102, 241, 0.2)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', fontWeight: 600, fontSize: '0.85rem' }}>
-                    {member.userId.substring(0, 2).toUpperCase()}
-                  </div>
-                  <div>
-                    <div style={{ color: '#f8fafc', fontSize: '0.9rem', fontWeight: 500, fontFamily: 'monospace' }}>
-                      {member.userId}
-                    </div>
-                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>
-                      Joined {new Date(member.joinedAt).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-
-                {member.userId === group.createdBy && (
-                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.25rem 0.6rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 600 }}>
-                    <Shield size={12} /> Creator
-                  </span>
-                )}
-              </div>
-            ))}
+        {/* Main Content: Expense List */}
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Receipt size={22} color="#6366f1" /> Expense History
+            </h3>
           </div>
+
+          <ExpenseList expenses={expenses} loading={expensesLoading} />
         </div>
 
-        {/* Add Member Form */}
-        <div className="glass-panel" style={{ padding: '1.5rem', height: 'fit-content' }}>
-          <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <UserPlus size={20} color="#10b981" /> Add Member
-          </h3>
-          <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            Paste the User UUID to add them to this group.
-          </p>
+        {/* Sidebar: Roster & Add Member */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Members Roster */}
+          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', marginBottom: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Users size={20} color="#6366f1" /> Member Roster
+            </h3>
 
-          <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div>
-              <label className="label">User UUID</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {group.members.map((member) => (
+                <div 
+                  key={member.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justify: 'space-between',
+                    padding: '0.75rem 0.85rem',
+                    background: 'rgba(15, 23, 42, 0.5)',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <div style={{ background: 'rgba(99, 102, 241, 0.2)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', fontWeight: 600, fontSize: '0.8rem' }}>
+                      {member.userId.substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <div style={{ color: '#f8fafc', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'monospace' }}>
+                        {member.userId.substring(0, 8)}...
+                      </div>
+                    </div>
+                  </div>
+
+                  {member.userId === group.createdBy && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 600 }}>
+                      <Shield size={10} /> Creator
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Add Member Form */}
+          <div className="glass-panel" style={{ padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.15rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <UserPlus size={20} color="#10b981" /> Add Member
+            </h3>
+            <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '1rem' }}>
+              Paste User UUID to add to roster.
+            </p>
+
+            <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <input 
                 type="text"
                 required
                 className="form-input"
-                placeholder="e.g. 123e4567-e89b-12d3-a456-426614174000"
+                placeholder="User UUID"
                 value={newUserId}
                 onChange={(e) => setNewUserId(e.target.value)}
               />
-            </div>
 
-            <button type="submit" disabled={addingMember} className="btn-primary" style={{ width: '100%', padding: '0.75rem' }}>
-              {addingMember ? 'Adding...' : 'Add to Group'}
-            </button>
-          </form>
+              <button type="submit" disabled={addingMember} className="btn-primary" style={{ width: '100%', padding: '0.65rem' }}>
+                {addingMember ? 'Adding...' : 'Add Member'}
+              </button>
+            </form>
+          </div>
         </div>
       </div>
+
+      {/* Log Expense Modal */}
+      {showCreateExpense && (
+        <CreateExpenseModal 
+          groupId={groupId}
+          members={group.members}
+          onClose={() => setShowCreateExpense(false)}
+          onSuccess={() => {
+            fetchExpenses();
+          }}
+        />
+      )}
     </div>
   );
 };
