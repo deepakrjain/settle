@@ -13,12 +13,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.TestPropertySource;
 
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@TestPropertySource(properties = "payment.gateway.failure-rate-percent=0")
 class SettlementServiceIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
