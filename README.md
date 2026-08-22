@@ -109,6 +109,9 @@ Organized **by feature** for high cohesion:
 - **OpenAPI 3.0 & Interactive Swagger UI (Phase 12):**
   - **Interactive Endpoint Testing:** Integrated `springdoc-openapi-starter-webmvc-ui` to generate interactive API documentation available at `/swagger-ui.html`.
   - **JWT Bearer Security Scheme:** Configured `SecurityScheme` with `type = HTTP`, `scheme = bearer`, and `bearerFormat = JWT`. Developers can authenticate at `/api/auth/login`, paste the token into Swagger UI's "Authorize" modal, and test protected endpoints directly in the browser.
+- **React Frontend Architecture & In-Memory JWT Storage Security (Phase 13a):**
+  - **In-Memory Token Storage Rationale:** Storing JWT tokens in `localStorage` or `sessionStorage` makes them vulnerable to XSS attacks (any script running in the DOM can read `localStorage.getItem('token')`). Storing tokens in-memory within React state/closure insulates them from global storage inspection.
+  - **Vite + TypeScript + Modern UI System:** Built using React 18, TypeScript, and a glassmorphic design system with Vite dev server proxying `/api` requests to Spring Boot (`http://localhost:8080`).
 
 
 
