@@ -32,6 +32,9 @@ class SettlementServiceTest {
     @Mock
     private GroupSecurityGuard groupSecurityGuard;
 
+    @Mock
+    private MockPaymentGatewayClient mockPaymentGatewayClient;
+
     @InjectMocks
     private SettlementService settlementService;
 
@@ -70,7 +73,38 @@ class SettlementServiceTest {
 
         assertNotNull(response);
         assertEquals(existing.getId(), response.getId());
+        verify(mockPaymentGatewayClient, never()).processPayment(any(), any(), any());
         verify(settlementRepository, never()).saveAndFlush(any());
+        verify(ledgerEntryRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Successful payment records COMPLETED settlement and reversing ledger entry")
+    void testSuccessfulPaymentRecordsLedgerEntry() {
+        when(settlementRepository.findByIdempotencyKey("KEY-999")).thenReturn(Optional.empty());
+        when(mockPaymentGatewayClient.processPayment(any(), any(), any()))
+                .thenReturn(new PaymentResult(true, "TXN-123", "COMPLETED", null));
+        when(settlementRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+        SettlementResponse response = settlementService.recordSettlement(groupId, request, fromUserId);
+
+        assertNotNull(response);
+        assertEquals("COMPLETED", response.getStatus());
+        verify(ledgerEntryRepository, times(1)).save(any());
+    }
+
+    @Test
+    @DisplayName("Failed payment records FAILED settlement and DOES NOT create ledger entry")
+    void testFailedPaymentDoesNotRecordLedgerEntry() {
+        when(settlementRepository.findByIdempotencyKey("KEY-999")).thenReturn(Optional.empty());
+        when(mockPaymentGatewayClient.processPayment(any(), any(), any()))
+                .thenReturn(new PaymentResult(false, null, "FAILED", "Payment timeout"));
+        when(settlementRepository.saveAndFlush(any())).thenAnswer(i -> i.getArgument(0));
+
+        SettlementResponse response = settlementService.recordSettlement(groupId, request, fromUserId);
+
+        assertNotNull(response);
+        assertEquals("FAILED", response.getStatus());
         verify(ledgerEntryRepository, never()).save(any());
     }
 
@@ -78,8 +112,11 @@ class SettlementServiceTest {
     @DisplayName("Race condition handling: DB constraint violation returns existing settlement gracefully")
     void testDataIntegrityViolationReturnsExistingSettlement() {
         when(settlementRepository.findByIdempotencyKey("KEY-999"))
-                .thenReturn(Optional.empty()) // first check: empty
-                .thenReturn(Optional.of(new Settlement())); // second check after exception: found!
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(new Settlement()));
+
+        when(mockPaymentGatewayClient.processPayment(any(), any(), any()))
+                .thenReturn(new PaymentResult(true, "TXN-123", "COMPLETED", null));
 
         when(settlementRepository.saveAndFlush(any()))
                 .thenThrow(new DataIntegrityViolationException("Duplicate key error"));

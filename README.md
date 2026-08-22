@@ -90,8 +90,15 @@ Organized **by feature** for high cohesion:
   - **Greedy ($O(N \log N)$):** Repeatedly settles the largest debtor with the largest creditor. Fast, predictable, and scales to thousands of users. In practice, it produces near-optimal transaction counts for almost all real-world group balances.
   - **Optimal ($O(2^N)$):** Solves the NP-Hard subset-sum partitioning problem using recursive backtracking to find the absolute minimum number of transactions. Because of its exponential complexity, it is restricted to groups with under 10 active balances.
   - **Production Choice:** Production platforms (like Splitwise) default to greedy algorithms at scale because $O(N \log N)$ executes in sub-millisecond time, avoiding CPU exhaustion while delivering a simple, intuitive debt simplification plan.
-- **Idempotent Settlements & Race Condition Defense:**
+- **Idempotent Settlements & Race Condition Defense (Phase 8):**
   - **Why DB Constraints Matter:** Application-level `findByIdempotencyKey()` checks are subject to race conditions if two identical requests arrive simultaneously before either has committed. The database unique constraint on `idempotency_key` guarantees true atomicity via database page/index locks.
   - **Graceful Error Recovery:** When a race condition occurs, `SettlementService` catches `DataIntegrityViolationException`, retrieves the already-committed `Settlement` object, and returns it cleanly to the caller without surfacing a 500 error or creating duplicate payments.
+- **Payment Gateway Retries & Exponential Backoff (Phase 9):**
+  - **Exponential Backoff Multiplier:** Given `@Backoff(delay = 500, multiplier = 2)` and `maxAttempts = 3`:
+    - **Attempt 1 ($t = 0$ ms):** Initial execution.
+    - **Attempt 2 ($t = 500$ ms):** 1st retry executed after a $500$ ms delay ($500 \times 2^0$).
+    - **Attempt 3 ($t = 1500$ ms):** 2nd retry executed after a $1000$ ms delay ($500 \times 2^1$).
+  - **Fallback Recovery (`@Recover`):** If all 3 attempts fail due to temporary network timeouts (`PaymentGatewayException`), Spring Retry invokes `@Recover`. The settlement is saved with status `FAILED` and no debt-reversing `LedgerEntry` is written, preventing ambiguous or partially-committed states.
+
 
 

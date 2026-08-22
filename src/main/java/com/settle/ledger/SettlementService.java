@@ -16,38 +16,33 @@ public class SettlementService {
     private final SettlementRepository settlementRepository;
     private final LedgerEntryRepository ledgerEntryRepository;
     private final GroupSecurityGuard groupSecurityGuard;
+    private final MockPaymentGatewayClient mockPaymentGatewayClient;
 
     public SettlementService(SettlementRepository settlementRepository,
                              LedgerEntryRepository ledgerEntryRepository,
-                             GroupSecurityGuard groupSecurityGuard) {
+                             GroupSecurityGuard groupSecurityGuard,
+                             MockPaymentGatewayClient mockPaymentGatewayClient) {
         this.settlementRepository = settlementRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.groupSecurityGuard = groupSecurityGuard;
+        this.mockPaymentGatewayClient = mockPaymentGatewayClient;
     }
 
     /**
      * Records a debt settlement between two group members idempotently.
-     *
-     * Idempotency & Concurrency Strategy:
-     * 1. Application Check: First check if a Settlement with this idempotencyKey already exists.
-     *    If found, return it immediately.
-     * 2. Database Constraint Defense: If two concurrent requests arrive simultaneously, both
-     *    might pass the application check before either commits. The DB unique constraint on
-     *    idempotency_key forces the second insert to fail with DataIntegrityViolationException.
-     * 3. Graceful Recovery: We catch DataIntegrityViolationException, fetch the existing settlement
-     *    inserted by the winning thread, and return it without surfacing an error.
+     * Integrates MockPaymentGatewayClient with retry and fallback handling.
      */
     @Transactional
     public SettlementResponse recordSettlement(UUID groupId,
                                                RecordSettlementRequest request,
                                                UUID requestingUserId) {
-        // 1. Application-level check
+        // 1. Application-level idempotency check
         Optional<Settlement> existing = settlementRepository.findByIdempotencyKey(request.getIdempotencyKey());
         if (existing.isPresent()) {
             return SettlementResponse.fromEntity(existing.get());
         }
 
-        // 2. Verify membership for requester, payer, and recipient
+        // 2. Verify group membership for requester, payer, and recipient
         groupSecurityGuard.checkMembership(groupId, requestingUserId);
         groupSecurityGuard.checkMembership(groupId, request.getFromUserId());
         groupSecurityGuard.checkMembership(groupId, request.getToUserId());
@@ -56,32 +51,38 @@ public class SettlementService {
             throw new IllegalArgumentException("Cannot settle debt with oneself");
         }
 
+        // 3. Process payment through mock gateway (handles @Retryable internally)
+        PaymentResult paymentResult = mockPaymentGatewayClient.processPayment(
+                request.getFromUserId(),
+                request.getToUserId(),
+                request.getAmount()
+        );
+
         try {
-            // 3. Save Settlement record
+            // 4. Save Settlement record with final status (COMPLETED or FAILED)
             Settlement settlement = new Settlement();
             settlement.setGroupId(groupId);
             settlement.setFromUserId(request.getFromUserId());
             settlement.setToUserId(request.getToUserId());
             settlement.setAmount(request.getAmount());
             settlement.setIdempotencyKey(request.getIdempotencyKey());
-            settlement.setStatus("COMPLETED");
+            settlement.setStatus(paymentResult.getStatus());
 
             Settlement savedSettlement = settlementRepository.saveAndFlush(settlement);
 
-            // 4. Generate reversing LedgerEntry in the same transaction
-            // When fromUserId (debtor) pays toUserId (creditor):
-            // We set LedgerEntry fromUserId = toUserId, toUserId = fromUserId.
-            // In getNetBalances: toUserId gets -amount (reducing credit), fromUserId gets +amount (reducing debt).
-            LedgerEntry ledgerEntry = new LedgerEntry();
-            ledgerEntry.setGroupId(groupId);
-            ledgerEntry.setFromUserId(request.getToUserId());
-            ledgerEntry.setToUserId(request.getFromUserId());
-            ledgerEntry.setAmount(request.getAmount());
-            ledgerEntry.setCurrency("INR");
-            ledgerEntry.setSourceType(SourceType.SETTLEMENT);
-            ledgerEntry.setSourceId(savedSettlement.getId());
+            // 5. Generate reversing LedgerEntry ONLY if payment succeeded
+            if (paymentResult.isSuccessful()) {
+                LedgerEntry ledgerEntry = new LedgerEntry();
+                ledgerEntry.setGroupId(groupId);
+                ledgerEntry.setFromUserId(request.getToUserId());
+                ledgerEntry.setToUserId(request.getFromUserId());
+                ledgerEntry.setAmount(request.getAmount());
+                ledgerEntry.setCurrency("INR");
+                ledgerEntry.setSourceType(SourceType.SETTLEMENT);
+                ledgerEntry.setSourceId(savedSettlement.getId());
 
-            ledgerEntryRepository.save(ledgerEntry);
+                ledgerEntryRepository.save(ledgerEntry);
+            }
 
             return SettlementResponse.fromEntity(savedSettlement);
         } catch (DataIntegrityViolationException ex) {
