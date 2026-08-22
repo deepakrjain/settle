@@ -61,6 +61,7 @@ Organized **by feature** for high cohesion:
 | `GET` | `/api/groups/{groupId}/expenses` | JWT | List expenses for a group (paginated) |
 | `GET` | `/api/groups/{groupId}/balances` | JWT | Get net balances for all group members |
 | `GET` | `/api/groups/{groupId}/settlement-plan` | JWT | Get calculated greedy and optimal debt settlement plans |
+| `POST` | `/api/groups/{groupId}/settlements` | JWT | Record an idempotent debt settlement payment |
 
 ## Getting Started
 
@@ -89,4 +90,8 @@ Organized **by feature** for high cohesion:
   - **Greedy ($O(N \log N)$):** Repeatedly settles the largest debtor with the largest creditor. Fast, predictable, and scales to thousands of users. In practice, it produces near-optimal transaction counts for almost all real-world group balances.
   - **Optimal ($O(2^N)$):** Solves the NP-Hard subset-sum partitioning problem using recursive backtracking to find the absolute minimum number of transactions. Because of its exponential complexity, it is restricted to groups with under 10 active balances.
   - **Production Choice:** Production platforms (like Splitwise) default to greedy algorithms at scale because $O(N \log N)$ executes in sub-millisecond time, avoiding CPU exhaustion while delivering a simple, intuitive debt simplification plan.
+- **Idempotent Settlements & Race Condition Defense:**
+  - **Why DB Constraints Matter:** Application-level `findByIdempotencyKey()` checks are subject to race conditions if two identical requests arrive simultaneously before either has committed. The database unique constraint on `idempotency_key` guarantees true atomicity via database page/index locks.
+  - **Graceful Error Recovery:** When a race condition occurs, `SettlementService` catches `DataIntegrityViolationException`, retrieves the already-committed `Settlement` object, and returns it cleanly to the caller without surfacing a 500 error or creating duplicate payments.
+
 
