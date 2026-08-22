@@ -1,6 +1,7 @@
 package com.settle.group;
 
 import com.settle.group.dto.GroupResponse;
+import com.settle.user.User;
 import com.settle.user.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -27,6 +29,13 @@ public class GroupService {
         this.groupMemberRepository = groupMemberRepository;
         this.userRepository = userRepository;
         this.groupSecurityGuard = groupSecurityGuard;
+    }
+
+    private Map<UUID, User> buildUserMap(List<GroupMember> members) {
+        if (members == null || members.isEmpty()) return Map.of();
+        List<UUID> userIds = members.stream().map(GroupMember::getUserId).distinct().collect(Collectors.toList());
+        return userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, u -> u));
     }
 
     /**
@@ -49,7 +58,8 @@ public class GroupService {
         creatorMember.setUserId(creatorUserId);
         GroupMember savedMember = groupMemberRepository.save(creatorMember);
 
-        return GroupResponse.fromEntity(savedGroup, List.of(savedMember));
+        List<GroupMember> members = List.of(savedMember);
+        return GroupResponse.fromEntity(savedGroup, members, buildUserMap(members));
     }
 
     /**
@@ -78,7 +88,7 @@ public class GroupService {
         groupMemberRepository.save(newMember);
 
         List<GroupMember> members = groupMemberRepository.findByGroupId(groupId);
-        return GroupResponse.fromEntity(group, members);
+        return GroupResponse.fromEntity(group, members, buildUserMap(members));
     }
 
     /**
@@ -92,7 +102,7 @@ public class GroupService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Group not found"));
 
         List<GroupMember> members = groupMemberRepository.findByGroupId(groupId);
-        return GroupResponse.fromEntity(group, members);
+        return GroupResponse.fromEntity(group, members, buildUserMap(members));
     }
 
     /**
@@ -109,7 +119,7 @@ public class GroupService {
 
         return groups.stream().map(group -> {
             List<GroupMember> members = groupMemberRepository.findByGroupId(group.getId());
-            return GroupResponse.fromEntity(group, members);
+            return GroupResponse.fromEntity(group, members, buildUserMap(members));
         }).collect(Collectors.toList());
     }
 }

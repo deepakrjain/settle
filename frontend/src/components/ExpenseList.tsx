@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
-import { ExpenseResponse } from '../types';
+import { ExpenseResponse, GroupMember } from '../types';
 import { Receipt, Tag, ChevronDown, ChevronUp, UserCheck } from 'lucide-react';
 
 interface ExpenseListProps {
   expenses: ExpenseResponse[];
   loading: boolean;
+  members?: GroupMember[];
 }
 
-export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading }) => {
+export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading, members }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
     setExpandedId(expandedId === id ? null : id);
+  };
+
+  const getMemberName = (userId: string) => {
+    const found = members?.find((m) => m.userId === userId);
+    return found?.userDisplayName || (userId ? `${userId.substring(0, 8)}...` : 'User');
   };
 
   if (loading) {
@@ -72,7 +78,7 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading }) =
                   </div>
 
                   <div style={{ fontSize: '0.85rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <UserCheck size={14} /> Paid by <span style={{ color: '#f8fafc', fontWeight: 500, fontFamily: 'monospace' }}>{expense.paidByUserId.substring(0, 8)}...</span>
+                    <UserCheck size={14} /> Paid by <span style={{ color: '#f8fafc', fontWeight: 600 }}>{getMemberName(expense.paidByUserId)}</span>
                   </div>
                 </div>
               </div>
@@ -117,8 +123,8 @@ export const ExpenseList: React.FC<ExpenseListProps> = ({ expenses, loading }) =
                         fontSize: '0.85rem'
                       }}
                     >
-                      <span style={{ color: '#cbd5e1', fontFamily: 'monospace' }}>
-                        {split.userId.substring(0, 8)}...
+                      <span style={{ color: '#cbd5e1', fontWeight: 500 }}>
+                        {getMemberName(split.userId)}
                       </span>
                       <span style={{ fontWeight: 600, color: '#f8fafc' }}>
                         ₹{split.shareAmount.toFixed(2)}

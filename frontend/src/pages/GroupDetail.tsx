@@ -124,7 +124,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
 
       {/* Live Net Balances & Debt Minimization Dashboard */}
       <div style={{ marginBottom: '2rem' }}>
-        <BalancesDashboard groupId={groupId} onBalanceUpdated={fetchExpenses} />
+        <BalancesDashboard groupId={groupId} members={members} onBalanceUpdated={fetchExpenses} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
@@ -136,7 +136,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
             </h3>
           </div>
 
-          <ExpenseList expenses={expenses} loading={expensesLoading} />
+          <ExpenseList expenses={expenses} loading={expensesLoading} members={members} />
         </div>
 
         {/* Sidebar: Roster & Add Member */}
@@ -148,37 +148,47 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
             </h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {members.map((member) => (
-                <div 
-                  key={member.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.75rem 0.85rem',
-                    background: 'rgba(15, 23, 42, 0.5)',
-                    borderRadius: '10px',
-                    border: '1px solid rgba(255,255,255,0.05)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <div style={{ background: 'rgba(99, 102, 241, 0.2)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', fontWeight: 600, fontSize: '0.8rem' }}>
-                      {member.userId ? member.userId.substring(0, 2).toUpperCase() : 'U'}
-                    </div>
-                    <div>
-                      <div style={{ color: '#f8fafc', fontSize: '0.85rem', fontWeight: 500, fontFamily: 'monospace' }}>
-                        {member.userId ? `${member.userId.substring(0, 8)}...` : 'User'}
+              {members.map((member) => {
+                const displayName = member.userDisplayName || (member.userId ? `${member.userId.substring(0, 8)}...` : 'User');
+                const initial = displayName.charAt(0).toUpperCase();
+
+                return (
+                  <div 
+                    key={member.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '0.75rem 0.85rem',
+                      background: 'rgba(15, 23, 42, 0.5)',
+                      borderRadius: '10px',
+                      border: '1px solid rgba(255,255,255,0.05)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <div style={{ background: 'rgba(99, 102, 241, 0.2)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#818cf8', fontWeight: 600, fontSize: '0.8rem' }}>
+                        {initial}
+                      </div>
+                      <div>
+                        <div style={{ color: '#f8fafc', fontSize: '0.9rem', fontWeight: 600 }}>
+                          {displayName}
+                        </div>
+                        {member.userEmail && (
+                          <div style={{ color: '#64748b', fontSize: '0.75rem' }}>
+                            {member.userEmail}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {member.userId === group.createdBy && (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 600 }}>
-                      <Shield size={10} /> Creator
-                    </span>
-                  )}
-                </div>
-              ))}
+                    {member.userId === group.createdBy && (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', padding: '0.2rem 0.5rem', borderRadius: '20px', fontSize: '0.7rem', fontWeight: 600 }}>
+                        <Shield size={10} /> Creator
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 
@@ -188,7 +198,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
               <UserPlus size={20} color="#10b981" /> Add Member
             </h3>
             <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '1rem' }}>
-              Paste User UUID to add to roster.
+              Paste User ID to add to group roster.
             </p>
 
             <form onSubmit={handleAddMember} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -196,7 +206,7 @@ export const GroupDetail: React.FC<GroupDetailProps> = ({ groupId, onBack }) => 
                 type="text"
                 required
                 className="form-input"
-                placeholder="User UUID"
+                placeholder="User ID"
                 value={newUserId}
                 onChange={(e) => setNewUserId(e.target.value)}
               />

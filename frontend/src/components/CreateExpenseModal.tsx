@@ -307,7 +307,7 @@ export const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               <select className="form-input" value={paidByUserId} onChange={(e) => setPaidByUserId(e.target.value)}>
                 {members.map((m) => (
                   <option key={m.userId} value={m.userId}>
-                    {m.userId.substring(0, 8)}...
+                    {m.userDisplayName ? `${m.userDisplayName} (${m.userEmail || m.userId.substring(0, 6)})` : m.userId}
                   </option>
                 ))}
               </select>
@@ -349,15 +349,16 @@ export const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {members.map((m) => {
                   const isChecked = selectedParticipants.includes(m.userId);
+                  const nameDisplay = m.userDisplayName || m.userId;
                   return (
                     <div key={m.userId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f8fafc', fontSize: '0.85rem', cursor: 'pointer', fontFamily: 'monospace' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#f8fafc', fontSize: '0.85rem', cursor: 'pointer' }}>
                         <input 
                           type="checkbox"
                           checked={isChecked}
                           onChange={() => toggleParticipant(m.userId)}
                         />
-                        {m.userId}
+                        {nameDisplay}
                       </label>
 
                       {isChecked && splitType === 'PERCENTAGE' && (
@@ -493,7 +494,7 @@ export const CreateExpenseModal: React.FC<CreateExpenseModalProps> = ({
                               color: inItem ? '#34d399' : '#64748b'
                             }}
                           >
-                            {m.userId.substring(0, 6)}
+                            {m.userDisplayName || m.userId.substring(0, 6)}
                           </button>
                         );
                       })}

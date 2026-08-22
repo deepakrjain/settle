@@ -9,6 +9,8 @@ export interface GroupMember {
   id: string;
   groupId: string;
   userId: string;
+  userDisplayName?: string;
+  userEmail?: string;
   joinedAt: string;
 }
 

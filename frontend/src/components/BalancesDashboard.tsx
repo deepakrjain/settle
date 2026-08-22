@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { SettlementPlanResponse, SettlementTransaction, UserBalance } from '../types';
+import { GroupMember, SettlementPlanResponse, SettlementTransaction, UserBalance } from '../types';
 import { api } from '../api/client';
 import { Scale, ArrowRight, Zap, CheckCircle2, AlertCircle, Radio } from 'lucide-react';
 
 interface BalancesDashboardProps {
   groupId: string;
+  members?: GroupMember[];
   onBalanceUpdated?: () => void;
 }
 
-export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, onBalanceUpdated }) => {
+export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, members, onBalanceUpdated }) => {
   const [balances, setBalances] = useState<UserBalance[]>([]);
   const [plan, setPlan] = useState<SettlementPlanResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [settlingKey, setSettlingKey] = useState<string | null>(null);
   const [settleStatus, setSettleStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [liveConnected, setLiveConnected] = useState(false);
+
+  const getMemberName = (userId: string) => {
+    const found = members?.find((m) => m.userId === userId);
+    return found?.userDisplayName || (userId ? `${userId.substring(0, 8)}...` : 'User');
+  };
 
   const fetchData = async () => {
     try {
@@ -141,7 +147,7 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
         <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <Scale size={22} color="#6366f1" /> Net Balances & Debt Minimization
         </h3>
-        
+
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -181,6 +187,7 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
         {balances.map((b) => {
           const isCreditor = b.netBalance > 0.001;
           const isDebtor = b.netBalance < -0.001;
+          const memberName = getMemberName(b.userId);
           return (
             <div
               key={b.userId}
@@ -190,8 +197,8 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
                 borderLeft: `4px solid ${isCreditor ? '#10b981' : isDebtor ? '#ef4444' : '#64748b'}`
               }}
             >
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontFamily: 'monospace', marginBottom: '0.4rem' }}>
-                {b.userId.substring(0, 8)}...
+              <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#f8fafc', marginBottom: '0.4rem' }}>
+                {memberName}
               </div>
               <div style={{
                 fontSize: '1.25rem',
@@ -215,7 +222,7 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
           <div className="glass-panel" style={{ padding: '1.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h4 style={{ fontSize: '1.05rem', fontWeight: 600, color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <Zap size={18} color="#6366f1" /> Greedy Plan (O(N log N))
+                <Zap size={18} color="#6366f1" /> Greedy Plan
               </h4>
               <span style={{ background: 'rgba(99, 102, 241, 0.2)', color: '#818cf8', padding: '0.2rem 0.6rem', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
                 {plan.greedyTransactionCount} transaction(s)
@@ -243,10 +250,10 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
                       }}
                     >
                       <div style={{ fontSize: '0.85rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontFamily: 'monospace' }}>{tx.fromUserId.substring(0, 6)}</span>
+                        <span style={{ fontWeight: 600, color: '#f8fafc' }}>{getMemberName(tx.fromUserId)}</span>
                         <ArrowRight size={14} color="#94a3b8" />
-                        <span style={{ fontFamily: 'monospace' }}>{tx.toUserId.substring(0, 6)}</span>
-                        <span style={{ fontWeight: 700, color: '#f8fafc', marginLeft: '0.4rem' }}>₹{tx.amount.toFixed(2)}</span>
+                        <span style={{ fontWeight: 600, color: '#f8fafc' }}>{getMemberName(tx.toUserId)}</span>
+                        <span style={{ fontWeight: 700, color: '#34d399', marginLeft: '0.4rem' }}>₹{tx.amount.toFixed(2)}</span>
                       </div>
 
                       <button
@@ -297,10 +304,10 @@ export const BalancesDashboard: React.FC<BalancesDashboardProps> = ({ groupId, o
                         }}
                       >
                         <div style={{ fontSize: '0.85rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <span style={{ fontFamily: 'monospace' }}>{tx.fromUserId.substring(0, 6)}</span>
+                          <span style={{ fontWeight: 600, color: '#f8fafc' }}>{getMemberName(tx.fromUserId)}</span>
                           <ArrowRight size={14} color="#94a3b8" />
-                          <span style={{ fontFamily: 'monospace' }}>{tx.toUserId.substring(0, 6)}</span>
-                          <span style={{ fontWeight: 700, color: '#f8fafc', marginLeft: '0.4rem' }}>₹{tx.amount.toFixed(2)}</span>
+                          <span style={{ fontWeight: 600, color: '#f8fafc' }}>{getMemberName(tx.toUserId)}</span>
+                          <span style={{ fontWeight: 700, color: '#34d399', marginLeft: '0.4rem' }}>₹{tx.amount.toFixed(2)}</span>
                         </div>
 
                         <button
