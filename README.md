@@ -116,6 +116,9 @@ Organized **by feature** for high cohesion:
   - **Live WebSocket Synchronization:** Subscribes to STOMP topic `/topic/groups/{groupId}/balances` to push real-time net balance updates to connected clients without HTTP polling.
   - **Greedy vs. Optimal Plan Visualization:** Renders both Greedy ($O(N \log N)$) and exact Optimal ($O(2^N)$ backtracking) transaction plans side-by-side to visually demonstrate transaction minimization.
   - **Idempotent Settle Up UI:** Generates a client-side UUID idempotency key per payment. While the UI disables the button after a click for user experience, the true defense against duplicate payments is enforced by PostgreSQL's unique constraint on `idempotency_key`.
+- **Multi-Stage Docker Containerization & Cloud Deployment (Phase 14):**
+  - **Multi-Stage Dockerfile:** Separates compilation (`maven:3.9-eclipse-temurin-17-alpine`) from execution (`eclipse-temurin:17-jre-alpine`), shrinking production image size and eliminating build tools from runtime.
+  - **Docker Compose Orchestration:** Coordinates `app` and `db` services using PostgreSQL `pg_isready` healthchecks to ensure database readiness before Flyway migrations execute on app startup (`docker compose up --build`).
 
 
 
